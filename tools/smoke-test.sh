@@ -18,5 +18,5 @@ printf '\n'
 curl --noproxy '*' --fail --silent --show-error \
   "$BASE_URL/v1/responses" \
   -H 'Content-Type: application/json' \
-  -d "{\"model\":\"$MODEL\",\"input\":\"Reply with exactly: RESPONSES-OK\",\"temperature\":0,\"max_output_tokens\":32}"
+  -d "{\"model\":\"$MODEL\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Reply with exactly: RESPONSES-OK\"}]}],\"temperature\":0,\"max_output_tokens\":128}"
 printf '\n'

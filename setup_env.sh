@@ -30,5 +30,6 @@ uv pip install --python "$VENV/bin/python" \
   --index-url "$PYPI_INDEX_URL" \
   'modelscope>=1.28'
 
+"$ROOT/tools/apply-vllm-patches.sh" "$VENV"
 VENV="$VENV" "$ROOT/tools/check-env.sh"
 echo "Environment ready: $VENV"

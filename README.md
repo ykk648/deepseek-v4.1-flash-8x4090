@@ -262,6 +262,17 @@ memory access。默认 `FULL_AND_PIECEWISE` 稳定，并完成 decode graph capt
 公开模板不包含 API key 校验，因此默认只监听 loopback。不要直接绑定公网。需要
 局域网或公网访问时，应在 Caddy/Nginx 等反向代理层增加 TLS、认证、限流和访问控制。
 
+Codex 使用 Responses API 的结构化内容块：
+
+```json
+{"type": "input_text", "text": "..."}
+```
+
+当前上游 V4.1 tokenizer 只接受同义的 `text`，会返回 `400`。本仓库通过
+[`patches/vllm-deepseek-v41-responses.patch`](patches/vllm-deepseek-v41-responses.patch)
+补齐 `input_text` / `output_text` 归一化，`setup_env.sh` 会自动应用并做幂等检查。
+`tools/smoke-test.sh` 使用 Codex 同款结构化请求验证 `/v1/responses`。
+
 ## 项目结构
 
 ```text
@@ -270,11 +281,14 @@ memory access。默认 `FULL_AND_PIECEWISE` 稳定，并完成 decode graph capt
 ├── deepseek-v4.1-flash.service
 ├── env.sh
 ├── launch.sh
+├── patches/
+│   └── vllm-deepseek-v41-responses.patch
 ├── setup_env.sh
 ├── results/
 │   └── benchmark-summary.json
 └── tools/
     ├── benchmark-contexts.sh
+    ├── apply-vllm-patches.sh
     ├── check-env.sh
     ├── check-host.sh
     ├── download-model.sh
