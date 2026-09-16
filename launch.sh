@@ -36,6 +36,8 @@ MODEL_DIR="${MODEL_DIR:-$PROJECT_DIR/models/DeepSeek-V4.1-Flash}"
 : "${ENABLE_DSPARK:=1}"
 : "${NUM_SPECULATIVE_TOKENS:=5}"
 : "${ENABLE_ADAPTIVE_VERIFICATION:=1}"
+: "${ENABLE_VISION:=1}"
+: "${MAX_IMAGES_PER_PROMPT:=1}"
 
 export CUDA_VISIBLE_DEVICES NCCL_P2P_DISABLE=1
 
@@ -56,7 +58,6 @@ args=(
   --max-num-seqs "$MAX_NUM_SEQS"
   --max-num-batched-tokens "$MAX_NUM_BATCHED_TOKENS"
   --gpu-memory-utilization "$GPU_MEMORY_UTILIZATION"
-  --language-model-only
   --engram-config '{"cpu_offload":true}'
   --load-format safetensors
   --safetensors-load-strategy lazy
@@ -65,6 +66,16 @@ args=(
   --enable-auto-tool-choice
   --tool-call-parser deepseek_v41
 )
+
+if [[ "$ENABLE_VISION" == "1" ]]; then
+  if [[ ! "$MAX_IMAGES_PER_PROMPT" =~ ^[1-9][0-9]*$ ]]; then
+    echo "MAX_IMAGES_PER_PROMPT must be a positive integer when ENABLE_VISION=1" >&2
+    exit 1
+  fi
+  args+=(--limit-mm-per-prompt "{\"image\":$MAX_IMAGES_PER_PROMPT}")
+else
+  args+=(--language-model-only)
+fi
 
 if [[ "$ENABLE_PREFIX_CACHING" == "1" ]]; then
   args+=(--enable-prefix-caching)
@@ -83,7 +94,7 @@ if [[ "$ENABLE_DSPARK" == "1" ]]; then
 fi
 
 echo "Starting $SERVED_MODEL_NAME on GPUs $CUDA_VISIBLE_DEVICES"
-echo "Context=$MAX_MODEL_LEN DSpark=$ENABLE_DSPARK/$NUM_SPECULATIVE_TOKENS CED=$ENABLE_CED prefix_cache=$ENABLE_PREFIX_CACHING"
+echo "Context=$MAX_MODEL_LEN DSpark=$ENABLE_DSPARK/$NUM_SPECULATIVE_TOKENS CED=$ENABLE_CED prefix_cache=$ENABLE_PREFIX_CACHING vision=$ENABLE_VISION/$MAX_IMAGES_PER_PROMPT"
 if [[ "${DRY_RUN:-0}" == "1" ]]; then
   printf 'vllm'
   printf ' %q' "${args[@]}"

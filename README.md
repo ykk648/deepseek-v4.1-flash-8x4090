@@ -16,6 +16,7 @@ deepseek-ai/DeepSeek-V4.1-Flash 官方 checkpoint
 + DSpark 5 adaptive verification
 + CED prefill
 + prefix caching
++ single-image input for Codex / Responses API
 + vLLM 默认 FULL_AND_PIECEWISE CUDA Graph
 + 256K context / 单请求低延迟
 ```
@@ -40,6 +41,7 @@ CUDA Graph。本机实测后的差异如下：
 | CUDA Graph | 显式 `FULL` | 默认 `FULL_AND_PIECEWISE` |
 | 显存利用率 | 0.98 | 0.92 |
 | checkpoint 加载 | prefetch / 2 threads | lazy |
+| 单请求图片上限 | 2 | 1（可配置） |
 | P2P | 未限定 | 全部不可用，显式禁用 custom all-reduce |
 | 验证 | 通用启动配置 | 1K-256K、prefix cache、Responses API、passkey |
 
@@ -174,7 +176,8 @@ cp .env.example .env
 ./tools/smoke-test.sh
 ```
 
-该脚本验证 `/health`、`/v1/chat/completions` 和 `/v1/responses`。
+该脚本验证 `/health`、`/v1/chat/completions`、文本 `/v1/responses` 和单图
+`/v1/responses`。
 
 ### 5. systemd user service
 
@@ -256,6 +259,7 @@ memory access。默认 `FULL_AND_PIECEWISE` 稳定，并完成 decode graph capt
 - `GET /v1/models`
 - `POST /v1/chat/completions`
 - `POST /v1/responses`
+- Responses API 的 `input_image` 单图输入
 - DeepSeek V4.1 reasoning parser
 - 自动工具调用 parser
 
@@ -272,6 +276,29 @@ Codex 使用 Responses API 的结构化内容块：
 [`patches/vllm-deepseek-v41-responses.patch`](patches/vllm-deepseek-v41-responses.patch)
 补齐 `input_text` / `output_text` 归一化，`setup_env.sh` 会自动应用并做幂等检查。
 `tools/smoke-test.sh` 使用 Codex 同款结构化请求验证 `/v1/responses`。
+
+默认允许每个 prompt 一张图片：
+
+```dotenv
+ENABLE_VISION=1
+MAX_IMAGES_PER_PROMPT=1
+```
+
+这会传入 `--limit-mm-per-prompt '{"image":1}'`。Codex / Responses API 使用：
+
+```json
+{
+  "role": "user",
+  "content": [
+    {"type": "input_image", "image_url": "data:image/png;base64,...", "detail": "auto"},
+    {"type": "input_text", "text": "描述这张图片"}
+  ]
+}
+```
+
+设置 `ENABLE_VISION=0` 会恢复 `--language-model-only` 纯文本模式。每张图片必须能在
+一个 prefill chunk 内处理；当前 `MAX_NUM_BATCHED_TOKENS=4096` 满足模型默认最多
+1024 image tokens 的单图路径。
 
 ## 项目结构
 
