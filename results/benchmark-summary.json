@@ -1,0 +1,28 @@
+{
+  "date": "2026-09-16",
+  "hardware": "8x RTX 4090 48GB, SM89, no NVLink or CUDA P2P",
+  "profile": {
+    "tensor_parallel": 8,
+    "expert_parallel": true,
+    "context_length": 262144,
+    "kv_cache_dtype": "fp8",
+    "ced_prefill": true,
+    "prefix_caching": true,
+    "dspark_tokens": 5,
+    "adaptive_verification": true,
+    "cuda_graph_mode": "FULL_AND_PIECEWISE"
+  },
+  "single_request_random": [
+    {"input_tokens": 1024, "output_tokens": 256, "ttft_seconds": 0.204, "prefill_proxy_tokens_per_second": 5175, "decode_tokens_per_second": 120.5},
+    {"input_tokens": 8192, "output_tokens": 512, "ttft_seconds": 1.103, "prefill_proxy_tokens_per_second": 7453, "decode_tokens_per_second": 149.3},
+    {"input_tokens": 32768, "output_tokens": 128, "ttft_seconds": 3.766, "prefill_proxy_tokens_per_second": 8710, "decode_tokens_per_second": 127.8},
+    {"input_tokens": 131072, "output_tokens": 128, "ttft_seconds": 18.104, "prefill_proxy_tokens_per_second": 7241, "decode_tokens_per_second": 136.5},
+    {"input_tokens": 261888, "output_tokens": 128, "ttft_seconds": 56.140, "prefill_proxy_tokens_per_second": 4665, "decode_tokens_per_second": 137.6}
+  ],
+  "prefix_cache_32k": {"first_ttft_seconds": 4.40, "repeat_ttft_seconds": 0.88},
+  "notes": [
+    "Prefill throughput is input tokens divided by TTFT and is a proxy when CED is enabled.",
+    "Random inputs change speculative acceptance and therefore decode speed.",
+    "The 261888-token boundary completed without OOM."
+  ]
+}

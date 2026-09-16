@@ -1,0 +1,18 @@
+[Unit]
+Description=DeepSeek V4.1 Flash vLLM server (TP8/EP8)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=@PROJECT_DIR@
+ExecStart=@PROJECT_DIR@/launch.sh
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=90
+KillMode=mixed
+LimitNOFILE=1048576
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target
