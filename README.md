@@ -3,11 +3,14 @@
 > 在无 NVLink、无 CUDA P2P、双 NUMA 的单机 8 卡环境中，记录
 > DeepSeek-V4.1-Flash 的可复现部署、失败条件、参数 A/B 和长上下文性能。
 
-最后更新：2026-09-16
+最后更新：2026-09-22
 
 ## 结论
 
 本机最终采用：
+
+以下性能表记录 9 月 16 日单请求低延迟档；9 月 17 日的本机共享档改为
+`MAX_NUM_SEQS=3`，并发对比见下节。公开模板仍默认单请求。
 
 ```text
 deepseek-ai/DeepSeek-V4.1-Flash 官方 checkpoint
@@ -16,7 +19,7 @@ deepseek-ai/DeepSeek-V4.1-Flash 官方 checkpoint
 + DSpark 5 adaptive verification
 + CED prefill
 + prefix caching
-+ single-image input for Codex / Responses API
++ two-image input for Codex / Responses API
 + vLLM 默认 FULL_AND_PIECEWISE CUDA Graph
 + 256K context / 单请求低延迟
 ```
@@ -41,7 +44,7 @@ CUDA Graph。本机实测后的差异如下：
 | CUDA Graph | 显式 `FULL` | 默认 `FULL_AND_PIECEWISE` |
 | 显存利用率 | 0.98 | 0.92 |
 | checkpoint 加载 | prefetch / 2 threads | lazy |
-| 单请求图片上限 | 2 | 1（可配置） |
+| 单请求图片上限 | 2 | 2（可配置） |
 | P2P | 未限定 | 全部不可用，显式禁用 custom all-reduce |
 | 验证 | 通用启动配置 | 1K-256K、prefix cache、Responses API、passkey |
 
@@ -88,6 +91,66 @@ prefill 是 `input tokens / TTFT` 代理指标，不能当作精确 FLOPS 吞吐
 
 机器可读的汇总位于
 [`results/benchmark-summary.json`](results/benchmark-summary.json)。
+
+## 多用户并发
+
+2026-09-17 在保留图片输入、256K、DSpark 5 adaptive、CED、4096 batch tokens 和
+0.92 显存利用率的情况下，将服务端调度上限临时设为 4，实测客户端 1/2/3/4 路。
+每档 8 个约 8K 输入 / 512 输出请求，temperature=0、ignore EOS，64 个正式对比
+请求均成功。未测试更高并发或持续数小时的压测。
+
+| 客户端并发 | 新输入总输出 tok/s | 新输入平均 TTFT | 重复输入总输出 tok/s | 重复输入每路 decode tok/s |
+|---:|---:|---:|---:|---:|
+| 1 | 96.3 | 1.37 s | 132.8 | 137.4 |
+| 2 | 122.7 | 1.82 s | 182.9 | 95.9 |
+| 3 | 141.2 | 2.47 s | 230.8 | 85.9 |
+| 4 | 165.8 | 2.76 s | 240.9 | 73.7 |
+
+总输出吞吐包含 prefill，不能与每路 `1000 / mean TPOT(ms)` 的 decode 指标混用。
+重复输入组使用同一 seed=123、同一批 8 个 prompt，先完整预热后再逐档测量。
+新输入组使用不同 seed=457/458/459/460 避免跨档缓存复用，但不同输入和调度也会
+改变 DSpark 接受率；单轮小样本不代表真实代码或图片负载的稳定吞吐。
+
+本机选择 **3 路共享档**：重复输入下已经达到 4 路约 96% 的总吞吐，每人 decode
+更快。新输入组则是 **4 路吞吐最高**，若主要追求总处理量且允许更长等待，可选 4。
+2 路更偏重交互延迟。仅一个请求时不会为了凑满 batch 而等待其他用户。
+
+最终 3 路服务再次测 8K/512：单路总输出 96.9 tok/s、纯 decode 125.6 tok/s；
+3 路总输出 162.3 tok/s。16 次正式请求全部成功。启用双图后的 3 路服务 KV 容量为
+1,037,389 tokens，256K 长度保持不变；这是容量评估，不是 3 路完整 256K 实测。
+未对服务端上限 1 与上限 3 做同负载严格 A/B，不应据此宣称单路性能完全无损。
+
+补充 32K/256（服务端上限 3，每档 6 请求，不同随机 seed）：
+
+| 客户端并发 | 总输出 tok/s | 平均 TTFT | 每路 decode tok/s |
+|---:|---:|---:|---:|
+| 1 | 44.1 | 3.59 s | 114.8 |
+| 2 | 41.7 | 5.99 s | 41.0 |
+| 3 | 51.5 | 4.98 s | 26.4 |
+
+18 次请求全部成功。多个长输入 prefill 会暂停其他请求的 decode，平均 TPOT 包含
+这些暂停，所以每路速度会大幅下降。长输入短输出中，并发收益并不稳定，不能将
+8K 的推荐直接外推到 32K/128K/256K；频繁提交大段新上下文且重视个人流畅度时，
+更适合减少并发、允许排队。独立就绪探测可能预热首个 prompt，因此补测组不是
+严格的全冷缓存比较。Responses 双图输入也在最终 3 路服务下重新验证通过。
+
+```dotenv
+MAX_NUM_SEQS=3
+```
+
+此参数修改后须重启服务才生效。调度上限不是完整 256K 请求的容量保证：4 路配置
+启动时 KV 容量为 828,104 tokens（约 3.16 个 256K 请求），不能保证 4 个完整 256K
+请求同时驻留。超过调度上限会排队，超过 KV 容量可能抢占重算。
+
+复现前先把服务端 `MAX_NUM_SEQS` 设为至少 4，并确保没有其他用户请求干扰：
+
+```bash
+bash tools/benchmark-concurrency.sh
+```
+
+脚本另含 8 个预热请求，每次 vLLM bench 还会发送一次独立端点探测。原始结果保存在
+`results/local/concurrency/`，精简汇总见
+[`results/concurrency-summary.json`](results/concurrency-summary.json)。
 
 ## 测试机器
 
@@ -176,7 +239,7 @@ cp .env.example .env
 ./tools/smoke-test.sh
 ```
 
-该脚本验证 `/health`、`/v1/chat/completions`、文本 `/v1/responses` 和单图
+该脚本验证 `/health`、`/v1/chat/completions`、文本 `/v1/responses` 和双图
 `/v1/responses`。
 
 ### 5. systemd user service
@@ -259,7 +322,7 @@ memory access。默认 `FULL_AND_PIECEWISE` 稳定，并完成 decode graph capt
 - `GET /v1/models`
 - `POST /v1/chat/completions`
 - `POST /v1/responses`
-- Responses API 的 `input_image` 单图输入
+- Responses API 的 `input_image` 双图输入
 - DeepSeek V4.1 reasoning parser
 - 自动工具调用 parser
 
@@ -277,14 +340,14 @@ Codex 使用 Responses API 的结构化内容块：
 补齐 `input_text` / `output_text` 归一化，`setup_env.sh` 会自动应用并做幂等检查。
 `tools/smoke-test.sh` 使用 Codex 同款结构化请求验证 `/v1/responses`。
 
-默认允许每个 prompt 一张图片：
+默认允许每个 prompt 两张图片，与上游 8 x 4090 示例一致：
 
 ```dotenv
 ENABLE_VISION=1
-MAX_IMAGES_PER_PROMPT=1
+MAX_IMAGES_PER_PROMPT=2
 ```
 
-这会传入 `--limit-mm-per-prompt '{"image":1}'`。Codex / Responses API 使用：
+这会传入 `--limit-mm-per-prompt '{"image":2}'`。Codex / Responses API 使用：
 
 ```json
 {
@@ -297,8 +360,8 @@ MAX_IMAGES_PER_PROMPT=1
 ```
 
 设置 `ENABLE_VISION=0` 会恢复 `--language-model-only` 纯文本模式。每张图片必须能在
-一个 prefill chunk 内处理；当前 `MAX_NUM_BATCHED_TOKENS=4096` 满足模型默认最多
-1024 image tokens 的单图路径。
+一个 prefill chunk 内处理；当前 `MAX_NUM_BATCHED_TOKENS=4096` 可覆盖模型默认每张
+最多 1024 image tokens 的双图路径。
 
 ## 项目结构
 

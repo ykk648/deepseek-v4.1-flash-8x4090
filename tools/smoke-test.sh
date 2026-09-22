@@ -27,6 +27,6 @@ if [[ "${ENABLE_VISION:-1}" == "1" ]]; then
   curl --noproxy '*' --fail --silent --show-error \
     "$BASE_URL/v1/responses" \
     -H 'Content-Type: application/json' \
-    -d "{\"model\":\"$MODEL\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_image\",\"image_url\":\"$IMAGE_DATA_URL\",\"detail\":\"auto\"},{\"type\":\"input_text\",\"text\":\"Reply with exactly: IMAGE-OK\"}]}],\"temperature\":0,\"max_output_tokens\":128}"
+    -d "{\"model\":\"$MODEL\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_image\",\"image_url\":\"$IMAGE_DATA_URL\",\"detail\":\"auto\"},{\"type\":\"input_image\",\"image_url\":\"$IMAGE_DATA_URL\",\"detail\":\"auto\"},{\"type\":\"input_text\",\"text\":\"Reply with exactly: IMAGE-OK\"}]}],\"temperature\":0,\"max_output_tokens\":128}"
   printf '\n'
 fi

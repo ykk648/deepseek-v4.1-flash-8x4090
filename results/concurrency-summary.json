@@ -1,0 +1,52 @@
+{
+  "date": "2026-09-17",
+  "server_max_num_seqs": 4,
+  "max_model_len": 262144,
+  "max_num_batched_tokens": 4096,
+  "gpu_memory_utilization": 0.92,
+  "vision": true,
+  "input_len_requested": 8192,
+  "input_len_actual": 8222,
+  "output_len": 512,
+  "requests_per_case": 8,
+  "recommended_balanced_max_num_seqs": 3,
+  "highest_tested_throughput_concurrency": 4,
+  "warm_seed": 123,
+  "final_profile": {
+    "max_num_seqs": 3,
+    "kv_cache_tokens": 1037389,
+    "max_model_len": 262144,
+    "vision_responses_passed": true,
+    "max_images_per_prompt": 2,
+    "notes": ["Readiness probes may warm the first prompt; verification cases are not strictly cold-cache."],
+    "verification_8k_512": [
+      {"concurrency": 1, "seed": 457, "completed": 8, "failed": 0, "output_tok_s": 96.9230, "mean_ttft_ms": 1214.2623, "mean_tpot_ms": 7.9612},
+      {"concurrency": 3, "seed": 459, "completed": 8, "failed": 0, "output_tok_s": 162.3200, "mean_ttft_ms": 1664.7253, "mean_tpot_ms": 14.2449}
+    ],
+    "verification_32k_256": [
+      {"concurrency": 1, "seed": 457, "completed": 6, "failed": 0, "output_tok_s": 44.0623, "mean_ttft_ms": 3588.5893, "mean_tpot_ms": 8.7109},
+      {"concurrency": 2, "seed": 458, "completed": 6, "failed": 0, "output_tok_s": 41.6614, "mean_ttft_ms": 5991.6590, "mean_tpot_ms": 24.3638},
+      {"concurrency": 3, "seed": 459, "completed": 6, "failed": 0, "output_tok_s": 51.4725, "mean_ttft_ms": 4976.9748, "mean_tpot_ms": 37.8677}
+    ]
+  },
+  "notes": [
+    "All concurrency sweep cases ran under a server scheduler cap of 4.",
+    "Warm cases used identical seeded prompts after a complete 8-request warmup.",
+    "Cold cases used different seeds to avoid cross-case prefix reuse; inputs and DSpark acceptance differ.",
+    "Output throughput includes prefill; per-request decode proxy is 1000 / mean_tpot_ms.",
+    "One sweep, not a sustained production soak or a quality evaluation.",
+    "The server cap does not guarantee that many full 256K requests fit simultaneously."
+  ],
+  "warm_cases": [
+    {"concurrency": 1, "completed": 8, "failed": 0, "output_tok_s": 132.7514, "mean_ttft_ms": 137.8826, "mean_tpot_ms": 7.2776, "spec_acceptance_pct": 33.7353},
+    {"concurrency": 2, "completed": 8, "failed": 0, "output_tok_s": 182.8526, "mean_ttft_ms": 226.3708, "mean_tpot_ms": 10.4300, "spec_acceptance_pct": 23.0462},
+    {"concurrency": 3, "completed": 8, "failed": 0, "output_tok_s": 230.8093, "mean_ttft_ms": 493.4150, "mean_tpot_ms": 11.6374, "spec_acceptance_pct": 26.7389},
+    {"concurrency": 4, "completed": 8, "failed": 0, "output_tok_s": 240.8866, "mean_ttft_ms": 560.8529, "mean_tpot_ms": 13.5721, "spec_acceptance_pct": 22.9963}
+  ],
+  "cold_cases": [
+    {"concurrency": 1, "seed": 457, "completed": 8, "failed": 0, "output_tok_s": 96.3156, "mean_ttft_ms": 1367.8645, "mean_tpot_ms": 7.7259, "spec_acceptance_pct": 29.8116},
+    {"concurrency": 2, "seed": 458, "completed": 8, "failed": 0, "output_tok_s": 122.6911, "mean_ttft_ms": 1819.8569, "mean_tpot_ms": 12.1858, "spec_acceptance_pct": 24.4300},
+    {"concurrency": 3, "seed": 459, "completed": 8, "failed": 0, "output_tok_s": 141.2410, "mean_ttft_ms": 2472.3544, "mean_tpot_ms": 15.9176, "spec_acceptance_pct": 25.4767},
+    {"concurrency": 4, "seed": 460, "completed": 8, "failed": 0, "output_tok_s": 165.8171, "mean_ttft_ms": 2756.4586, "mean_tpot_ms": 17.1643, "spec_acceptance_pct": 28.2374}
+  ]
+}
