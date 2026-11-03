@@ -1,0 +1,14 @@
+--- a/vllm/entrypoints/openai/responses/utils.py
++++ b/vllm/entrypoints/openai/responses/utils.py
+@@ -319,6 +319,11 @@ def _construct_message_from_response_item(
+             content=item.get("output"),
+             tool_call_id=item.get("call_id"),
+         )
++    elif isinstance(item, dict) and item.get("type") == "compaction":
++        logger.debug(
++            "Ignoring unsupported encrypted compaction item %s.", item.get("id")
++        )
++        return None
+     elif isinstance(item, dict) and item.get("role") == "assistant":
+         content = item.get("content")
+         text: str | None = None

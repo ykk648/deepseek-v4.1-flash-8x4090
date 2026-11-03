@@ -59,6 +59,10 @@ fi
 RESPONSES_UTILS_TARGET="$SITE_PACKAGES/vllm/entrypoints/openai/responses/utils.py"
 RESPONSES_UTILS_PATCH="$ROOT/patches/vllm-responses-encrypted-reasoning.patch"
 RESPONSES_UTILS_PATCHED='Ignoring unsupported encrypted reasoning item %s.'
+RESPONSES_COMPACTION_PATCH="$ROOT/patches/vllm-responses-compaction-item.patch"
+RESPONSES_COMPACTION_PATCHED='Ignoring unsupported encrypted compaction item'
+RESPONSES_ROLELESS_PATCH="$ROOT/patches/vllm-responses-roleless-items.patch"
+RESPONSES_ROLELESS_PATCHED='Ignoring unsupported roleless Responses item type'
 
 test -f "$RESPONSES_UTILS_TARGET" || {
   echo "Responses API utils source not found: $RESPONSES_UTILS_TARGET" >&2
@@ -72,6 +76,26 @@ elif grep -Fq 'raise ValueError("Encrypted content is not supported.")' "$RESPON
   echo 'Applied Codex encrypted reasoning patch.'
 else
   echo 'Unsupported Responses API utils version; refusing to patch.' >&2
+  exit 1
+fi
+
+if grep -Fq "$RESPONSES_COMPACTION_PATCHED" "$RESPONSES_UTILS_TARGET"; then
+  echo 'Codex compaction item patch already applied.'
+elif grep -Fq 'item.get("type") == "function_call_output"' "$RESPONSES_UTILS_TARGET"; then
+  patch --batch --forward -d "$SITE_PACKAGES" -p1 -i "$RESPONSES_COMPACTION_PATCH"
+  echo 'Applied Codex compaction item patch.'
+else
+  echo 'Unsupported Responses API utils version; refusing to patch compaction items.' >&2
+  exit 1
+fi
+
+if grep -Fq "$RESPONSES_ROLELESS_PATCHED" "$RESPONSES_UTILS_TARGET"; then
+  echo 'Codex roleless Responses item patch already applied.'
+elif grep -Fq "$RESPONSES_COMPACTION_PATCHED" "$RESPONSES_UTILS_TARGET"; then
+  patch --batch --forward -d "$SITE_PACKAGES" -p1 -i "$RESPONSES_ROLELESS_PATCH"
+  echo 'Applied Codex roleless Responses item patch.'
+else
+  echo 'Unsupported Responses API utils version; refusing to patch roleless items.' >&2
   exit 1
 fi
 
@@ -98,6 +122,21 @@ encrypted_reasoning = ResponseReasoningItem(
 )
 assert _construct_message_from_response_item(encrypted_reasoning) is None
 print("Codex encrypted reasoning normalization passed.")
+
+encrypted_compaction = {
+    "type": "compaction",
+    "id": "cmp_codex_compaction",
+    "encrypted_content": "opaque-codex-compaction",
+}
+assert _construct_message_from_response_item(encrypted_compaction) is None
+print("Codex encrypted compaction normalization passed.")
+
+roleless_item = {
+    "type": "item_reference",
+    "id": "item_codex_metadata",
+}
+assert _construct_message_from_response_item(roleless_item) is None
+print("Codex roleless Responses item normalization passed.")
 PY
 
 grep -Fq "$REJECTION_PATCHED" "$REJECTION_TARGET"

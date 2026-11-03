@@ -51,7 +51,7 @@ printf '%s' "$responses_response" | assert_exact_output responses RESPONSES-OK
 compact_response=$(curl --noproxy '*' --fail --silent --show-error \
   "$BASE_URL/v1/responses" \
   -H 'Content-Type: application/json' \
-  -d "{\"model\":\"$MODEL\",\"input\":[{\"type\":\"reasoning\",\"id\":\"rs_codex_compaction\",\"summary\":[],\"encrypted_content\":\"opaque-codex-reasoning\"},{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Reply with exactly: COMPACT-OK\"}]}],\"temperature\":0,\"max_output_tokens\":128}")
+  -d "{\"model\":\"$MODEL\",\"input\":[{\"type\":\"reasoning\",\"id\":\"rs_codex_compaction\",\"summary\":[],\"encrypted_content\":\"opaque-codex-reasoning\"},{\"type\":\"compaction\",\"id\":\"cmp_codex_compaction\",\"encrypted_content\":\"opaque-codex-compaction\"},{\"type\":\"item_reference\",\"id\":\"item_codex_metadata\"},{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Reply with exactly: COMPACT-OK\"}]}],\"temperature\":0,\"max_output_tokens\":128}")
 printf '%s' "$compact_response" | assert_exact_output compaction COMPACT-OK
 
 if [[ "${ENABLE_VISION:-1}" == "1" ]]; then

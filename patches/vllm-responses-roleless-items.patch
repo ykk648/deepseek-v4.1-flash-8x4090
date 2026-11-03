@@ -1,0 +1,15 @@
+--- a/vllm/entrypoints/openai/responses/utils.py
++++ b/vllm/entrypoints/openai/responses/utils.py
+@@ -324,6 +324,12 @@ def _construct_message_from_response_item(
+             "Ignoring unsupported encrypted compaction item %s.", item.get("id")
+         )
+         return None
++    elif isinstance(item, dict) and "role" not in item:
++        logger.warning(
++            "Ignoring unsupported roleless Responses item type %s.",
++            item.get("type"),
++        )
++        return None
+     elif isinstance(item, dict) and item.get("role") == "assistant":
+         content = item.get("content")
+         text: str | None = None

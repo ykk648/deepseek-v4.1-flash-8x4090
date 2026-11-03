@@ -395,7 +395,13 @@ Codex 压缩会回传 OpenAI 托管模型生成的 opaque `encrypted_content`。
 解密这段隐藏 reasoning；上游 vLLM 默认直接返回 `400`。本仓库的
 [`patches/vllm-responses-encrypted-reasoning.patch`](patches/vllm-responses-encrypted-reasoning.patch)
 会优先保留明文 reasoning content/summary，仅在没有明文时忽略密文项，保留其余对话
-和工具调用。冒烟测试使用同样的 reasoning item 验证压缩路径。
+和工具调用。vLLM 还会把 `type: "compaction"` 的 opaque item 当成缺少 `role` 的聊天
+消息并返回 `500`；
+[`patches/vllm-responses-compaction-item.patch`](patches/vllm-responses-compaction-item.patch)
+会忽略本地模型无法解密的该项。对于 Responses 规范中其他无法转换成聊天消息的无
+`role` 元数据项，
+[`patches/vllm-responses-roleless-items.patch`](patches/vllm-responses-roleless-items.patch)
+也会安全跳过，避免聊天模板抛出 `KeyError`。冒烟测试覆盖这三类压缩输入。
 
 默认允许每个 prompt 两张图片，与上游 8 x 4090 示例一致：
 
@@ -431,7 +437,9 @@ MAX_IMAGES_PER_PROMPT=2
 ├── patches/
 │   ├── vllm-adaptive-verification-bounds.patch
 │   ├── vllm-deepseek-v41-responses.patch
-│   └── vllm-responses-encrypted-reasoning.patch
+│   ├── vllm-responses-compaction-item.patch
+│   ├── vllm-responses-encrypted-reasoning.patch
+│   └── vllm-responses-roleless-items.patch
 ├── setup_env.sh
 ├── results/
 │   ├── benchmark-1017-summary.json
